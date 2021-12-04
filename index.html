@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset='utf-8'>
+	<title>Workout</title>
+</head>
+
+<body>
+	<button onclick="start();">Play</button>
+	<canvas id="canvas" width="300" height="300"></canvas>
+	<script>
+		// Initialize visual
+		const canvas = document.getElementById("canvas");
+		const context = canvas.getContext("2d");
+		const canvasHeight = 300;
+		const canvasWidth = 300;
+		const backgroundColor = "white";
+		const foregroundColor = "blue";
+		context.font = canvasHeight + "px san serif";
+
+		const aPitch = 440;
+		const cPitch = 261.63;
+		const minimumGain = 0.00001;
+		const maximumGain = 0.25;
+
+		// Initialize audio
+		// create web audio api context
+		const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+		function clear() {
+			context.fillStyle = backgroundColor;
+			context.fillRect(0, 0, canvasWidth, canvasHeight);
+		}
+
+		function startCountDown(start) {
+			context.textStyle = canvasHeight + "px san serif";
+
+			function drawNumber(number) {
+				clear();
+
+				context.fillStyle = foregroundColor;
+				// 2nd and 3rd arguments are the position offset of the bottom left corner of the text block to the top left corner of the canvas block.
+				// So the 3rd arg should always be greater than or equal to the pixel height to have it appear on the screen.
+				context.fillText(number.toString(), 0, canvasHeight);
+			}
+
+			if (start > 0) {
+				drawNumber(start);
+				bleep(cPitch, 500);
+				setTimeout(function() {
+					startCountDown(start - 1)
+				}, 1000);
+			} else {
+				clear();
+				bleep(aPitch, 1000);
+				// startSwing();
+				startLimb();
+			}
+		}
+
+		function bleep(hz, durationInMs) {
+			let oscillator;
+			let gainNode;
+			function createNodes() {
+				// create Oscillator node
+				oscillator = audioCtx.createOscillator();
+				// create gain node
+				gainNode = audioCtx.createGain();
+
+				// connect oscillator to gain node to speakers
+				oscillator.connect(gainNode);
+				gainNode.connect(audioCtx.destination);
+			}
+
+			createNodes();
+			oscillator.frequency.setValueAtTime(hz, audioCtx.currentTime); // value in hertz
+
+			const attackDecayDurationInSeconds = durationInMs / 2000;
+			let endTime = audioCtx.currentTime + attackDecayDurationInSeconds;
+
+			gainNode.gain.setValueAtTime(minimumGain, audioCtx.currentTime);
+			gainNode.gain.linearRampToValueAtTime(maximumGain, endTime);
+
+			oscillator.start();
+
+			// Queue the switch from attack to decay in the gain
+			setTimeout(function () {
+				endTime = audioCtx.currentTime + attackDecayDurationInSeconds;
+				gainNode.gain.linearRampToValueAtTime(minimumGain, endTime);
+			}, attackDecayDurationInSeconds);
+
+			// Queue the end of the tone
+			setTimeout(function () {
+				oscillator.stop();
+			}, durationInMs);
+		}
+
+		function startLimb() {
+			let previousTime;
+			const limbLength = 100;
+			let y1Velocity = 0.2;
+
+			let y1 = 2 * limbLength;
+			const x1 = 0
+
+			let x2;
+			let y2;
+
+			const x3 = 0;
+			const y3 = 0;
+			context.lineWidth = 10;
+
+			function drawLimb(timestamp) {
+				clear();
+
+				previousTime = previousTime || timestamp;
+
+				const deltaTime = timestamp - previousTime;
+				previousTime = timestamp;
+
+				const deltaY1 = deltaTime * y1Velocity;
+
+				y1 += deltaY1;
+				if (y1 < y3 || y1 > (y3 + (2 * limbLength))) { // check if y1 has exceeded its rang of motion
+					y1Velocity = -y1Velocity;
+				}
+
+				const thetaInRadians = Math.PI * y1 / (4 * limbLength);
+				x2 = limbLength * Math.cos(thetaInRadians);
+				y2 = limbLength * Math.sin(thetaInRadians);
+
+				context.strokeStyle = foregroundColor;
+				context.beginPath();
+				context.moveTo(x1, y1);
+				context.lineTo(x2, y2);
+				context.stroke();
+				context.lineTo(x3, y3);
+				context.stroke();
+				window.requestAnimationFrame(drawLimb);
+			}
+
+			window.requestAnimationFrame(drawLimb);
+		}
+
+		function startSwing() {
+			let angle = 0;
+			const swingLength = 100;
+			const angularSpeed = Math.PI / 1000; // (there are 2 PI radians in a circle) convert from ~3.14 rad/s to ms
+			let angularVelocity = angularSpeed;
+			let previousTime;
+			context.lineWidth = 10;
+
+			
+
+			function drawSwing(timestamp) {
+				clear();
+
+				previousTime = previousTime || timestamp;
+
+				const deltaTime = timestamp - previousTime;
+				previousTime = timestamp;
+				const deltaAngle = deltaTime * angularVelocity;
+
+				angle += deltaAngle;
+
+				newY = swingLength * Math.sin(angle);
+				newX = swingLength * Math.cos(angle);
+
+				if (newY >= 0 && newX >= 0) {
+					// reverse angular speed so it swings backdown
+					angularVelocity = -1 * angularSpeed;
+				} else if (newY >= 0 && newX <= 0) {
+					angularVelocity = angularSpeed;
+				}
+
+				context.strokeStyle = foregroundColor;
+				context.beginPath();
+				context.moveTo(150, 150);
+				context.lineTo(150 - newX, 150 - newY);
+				context.stroke();
+				window.requestAnimationFrame(drawSwing);
+			}
+
+			window.requestAnimationFrame(drawSwing);
+		}
+
+		function start () {
+			startCountDown(3);
+		}
+
+	</script>
+</body>
+</html>
