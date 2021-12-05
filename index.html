@@ -8,13 +8,16 @@
 
 <body>
 	<button onclick="start();">Play</button>
-	<canvas id="canvas" width="300" height="300"></canvas>
+	<canvas id="canvas"></canvas>
 	<script>
 		// Initialize visual
 		const canvas = document.getElementById("canvas");
+		const canvasHeight = 400;
+		const canvasWidth = 400;
+		canvas.height = canvasHeight;
+		canvas.Width = canvasWidth;
+
 		const context = canvas.getContext("2d");
-		const canvasHeight = 300;
-		const canvasWidth = 300;
 		const backgroundColor = "white";
 		const foregroundColor = "blue";
 		context.font = canvasHeight + "px san serif";
@@ -55,7 +58,8 @@
 				clear();
 				bleep(aPitch, 1000);
 				// startSwing();
-				startLimb();
+				// startLimb();
+				drawBody();
 			}
 		}
 
@@ -96,51 +100,99 @@
 			}, durationInMs);
 		}
 
-		function startLimb() {
+		const legLength = 100;
+		const armLength = 80;
+		const torsoLength = 150;
+		const headLength = 90;
+		const hipHeight = headLength + torsoLength;
+		
+		const hipHalfWidth = 20;
+		const shoulderHalfWidth = 25;
+
+		const rightLegX = shoulderHalfWidth - hipHalfWidth;
+		const rightArmX = 0;
+		const leftLegX = rightLegX + (2 * hipHalfWidth);
+		const leftArmX = rightArmX + (2 * shoulderHalfWidth);
+
+		function Limb(root, length) {
+			this.length = length;
+			this.root = root;
+			this.joint = { x: this.root.x,  y: this.root.y + length  };
+			this.tip =   { x: this.joint.x, y: this.joint.y + length };
+		}
+
+		Limb.prototype.draw = function() {
+			context.lineWidth = 3;
+			context.beginPath();
+			context.moveTo(this.tip.x, this.tip.y);
+			context.lineTo(this.joint.x, this.joint.y);
+			context.lineTo(this.root.x, this.root.y);
+			context.stroke();
+		};
+
+		Limb.prototype.startLimb = function() {
 			let previousTime;
-			const limbLength = 100;
-			let y1Velocity = 0.2;
+			const tipSpeed = 0.2;
+			let tipVelocity = 0.2;
 
-			let y1 = 2 * limbLength;
-			const x1 = 0
+			const limitFactor = 0.1 * this.length;
+			const grad = Math.PI / (4 * this.length);
 
-			let x2;
-			let y2;
-
-			const x3 = 0;
-			const y3 = 0;
-			context.lineWidth = 10;
-
-			function drawLimb(timestamp) {
-				clear();
+			const drawLimb = (timestamp) => {
 
 				previousTime = previousTime || timestamp;
 
 				const deltaTime = timestamp - previousTime;
 				previousTime = timestamp;
 
-				const deltaY1 = deltaTime * y1Velocity;
+				const deltaTip = deltaTime * tipVelocity;
 
-				y1 += deltaY1;
-				if (y1 < y3 || y1 > (y3 + (2 * limbLength))) { // check if y1 has exceeded its rang of motion
-					y1Velocity = -y1Velocity;
+				this.tip.y += deltaTip;
+
+				const tipMinY = this.root.y + limitFactor;
+				const tipMaxY = this.root.y + (2 * this.length) - limitFactor;
+				if (this.tip.y < tipMinY) { // check if y1 has exceeded its rang of motion
+					tipVelocity = tipSpeed;
+				} else if (this.tip.y > tipMaxY) {
+					tipVelocity = -1 * tipSpeed;
 				}
 
-				const thetaInRadians = Math.PI * y1 / (4 * limbLength);
-				x2 = limbLength * Math.cos(thetaInRadians);
-				y2 = limbLength * Math.sin(thetaInRadians);
+				const thetaInRadians = (grad * this.tip.y) - (grad * this.root.y);
+				this.joint.x = this.root.x + this.length * Math.cos(thetaInRadians);
+				this.joint.y = this.root.y + this.length * Math.sin(thetaInRadians);
 
-				context.strokeStyle = foregroundColor;
-				context.beginPath();
-				context.moveTo(x1, y1);
-				context.lineTo(x2, y2);
-				context.stroke();
-				context.lineTo(x3, y3);
-				context.stroke();
+				this.draw();
 				window.requestAnimationFrame(drawLimb);
 			}
 
 			window.requestAnimationFrame(drawLimb);
+		}
+
+		// Origin is top left corner of the screen
+		const body = {
+			leftLeg   : new Limb({ x: leftLegX,   y: hipHeight }, legLength),
+			rightLeg  : new Limb({ x: rightLegX,  y: hipHeight }, legLength),
+			leftArm   : new Limb({ x: leftArmX,   y: headLength }, armLength),
+			rightArm  : new Limb({ x: rightArmX,  y: headLength }, armLength)
+		};
+
+		function drawBody() {
+			clear();
+			body.leftLeg.draw();
+			body.rightLeg.draw();
+			body.leftArm.draw();
+			body.rightArm.draw();
+
+			// Hips, should, torso & head
+			context.beginPath();
+			context.moveTo(body.rightLeg.root.x, body.rightLeg.root.y);
+			context.lineTo(body.leftLeg.root.x, body.leftLeg.root.y);
+			context.lineTo(body.leftArm.root.x, body.leftArm.root.y);
+			context.lineTo(body.rightArm.root.x, body.rightArm.root.y);
+			context.lineTo(body.rightLeg.root.x, body.rightLeg.root.y);
+			context.stroke();
+
+			// body.leftArm.startLimb();
 		}
 
 		function startSwing() {
@@ -150,8 +202,6 @@
 			let angularVelocity = angularSpeed;
 			let previousTime;
 			context.lineWidth = 10;
-
-			
 
 			function drawSwing(timestamp) {
 				clear();
@@ -192,3 +242,4 @@
 	</script>
 </body>
 </html>
+
